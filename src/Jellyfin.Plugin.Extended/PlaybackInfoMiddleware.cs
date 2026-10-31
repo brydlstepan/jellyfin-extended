@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Extended;
 
 /// <summary>
-/// Limits PlaybackInfo requests to SDR for the devices set to HDR off.
+/// Limits PlaybackInfo requests to SDR for the devices set to HDR off, and for browsers on Auto that report an SDR screen.
 /// Anything unexpected passes through untouched: unchanged HDR is better than failed playback.
 /// </summary>
 public sealed class PlaybackInfoMiddleware : IStartupFilter
@@ -78,7 +78,7 @@ public sealed class PlaybackInfoMiddleware : IStartupFilter
         var auth = await context.RequestServices.GetRequiredService<IAuthorizationContext>()
             .GetAuthorizationInfo(request)
             .ConfigureAwait(false);
-        if (plugin.GetMode(auth.DeviceId) != HdrMode.Off)
+        if (!ScreenReport.LimitsToSdr(plugin.GetMode(auth.DeviceId), request.Headers[ScreenReport.HeaderName]))
         {
             return;
         }
