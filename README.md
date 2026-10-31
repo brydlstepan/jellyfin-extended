@@ -1,8 +1,8 @@
 # Jellyfin Extended
 
-A Jellyfin 12 plugin that will let each device choose Auto, HDR on or HDR off, so devices with wrong HDR contrast can use Jellyfin's transcoding instead. It's built for the owner's server and shared as-is, with best-effort support.
+A Jellyfin 12 plugin that adds features Jellyfin doesn't have. Its first feature lets each device choose how it handles HDR films, so devices with wrong HDR contrast can use Jellyfin's transcoding instead. It's built for the owner's server and shared as-is, with best-effort support.
 
-It is in early development. A device can be set to HDR off through the API, which makes Jellyfin transcode HDR films for it, but there's no settings page yet. See [PLAN.md](PLAN.md) for what's coming.
+It is in early development. A device set to HDR off through the API gets HDR films transcoded. Auto and HDR on leave its requests unchanged, and there's no settings page yet. See [PLAN.md](PLAN.md) for what's coming.
 
 ## Quick start
 
@@ -27,7 +27,7 @@ To install a build:
 
 ## Requirements
 
-- Jellyfin 12.x
+- Jellyfin 12.x, with tone mapping turned on under Dashboard > Playback > Transcoding
 - .NET 10 SDK, to build
 
 ## License

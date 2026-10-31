@@ -18,6 +18,7 @@ namespace Jellyfin.Plugin.Extended;
 /// </summary>
 public sealed class PlaybackInfoMiddleware : IStartupFilter
 {
+    private const int BufferThresholdBytes = 64 * 1024;
     private const long MaxBodyBytes = 4 * 1024 * 1024;
 
     private static readonly Regex PlaybackInfoPath = new(
@@ -69,9 +70,7 @@ public sealed class PlaybackInfoMiddleware : IStartupFilter
     {
         var request = context.Request;
         var plugin = Plugin.Instance;
-
-        // shortcut: bodies with no Content-Length pass through unchanged, read them with a size limit if a client or proxy needs it.
-        if (plugin is null || request.ContentLength is null or 0 or > MaxBodyBytes)
+        if (plugin is null)
         {
             return;
         }
@@ -84,7 +83,14 @@ public sealed class PlaybackInfoMiddleware : IStartupFilter
             return;
         }
 
-        request.EnableBuffering();
+        if (request.ContentLength > MaxBodyBytes)
+        {
+            _logger.LogWarning("HDR override skipped for {Path}: the body is too large", request.Path);
+            return;
+        }
+
+        // shortcut: a body with no length that passes the limit fails the request instead of passing through, handle it if a real client sends one that large.
+        request.EnableBuffering(BufferThresholdBytes, MaxBodyBytes);
         string json;
         using (var reader = new StreamReader(request.Body, Encoding.UTF8, leaveOpen: true))
         {
@@ -92,6 +98,11 @@ public sealed class PlaybackInfoMiddleware : IStartupFilter
         }
 
         request.Body.Position = 0;
+        if (json.Length == 0)
+        {
+            return;
+        }
+
         var rewritten = SdrProfile.Rewrite(json);
         if (rewritten is null)
         {

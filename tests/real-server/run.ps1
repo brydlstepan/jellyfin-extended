@@ -109,6 +109,13 @@ function App-Profile {
     $profile
 }
 
+# Like a client that can also receive HEVC, so a copy of the HDR video would be possible.
+function Hevc-Profile {
+    $profile = Web-Profile
+    $profile.TranscodingProfiles = @(@{ Container = 'mp4'; Type = 'Video'; AudioCodec = 'aac'; VideoCodec = 'hevc,h264'; Context = 'Streaming'; Protocol = 'hls'; MaxAudioChannels = '2'; BreakOnNonKeyFrames = $true })
+    $profile
+}
+
 function Playback($device, $item, $deviceProfile) {
     $body = @{ UserId = $script:userId; IsPlayback = $true; MaxStreamingBitrate = 120000000 }
     if ($deviceProfile) { $body.DeviceProfile = $deviceProfile }
@@ -196,7 +203,34 @@ try {
     Expect-Playback 'HDR off, app profile, HDR10' 'off' $hdr10 (App-Profile) $true
     Expect-Playback 'HDR off, app profile, Dolby Vision' 'off' $dovi (App-Profile) $true
     Expect-Playback 'HDR off, web profile, SDR film not affected' 'off' $sdr (Web-Profile) $false
+    Expect-Playback 'HDR off, app profile, SDR film not affected' 'off' $sdr (App-Profile) $false
     Expect-Playback 'Another device not affected' 'other' $hdr10 (Web-Profile) $false
+
+    '--- HDR off, HEVC transcode target'
+    $source = Playback 'off' $hdr10 (Hevc-Profile)
+    Pass-Fail 'The output range is SDR' ($source.TranscodingUrl -match 'hevc-rangetype=SDR') (($source.TranscodingUrl -split '[?&]' | Where-Object { $_ -match 'rangetype' }) -join ' ')
+    Pass-Fail 'The reason is the video range' ($source.TranscodingUrl -match 'VideoRangeTypeNotSupported') (($source.TranscodingUrl -split '[?&]' | Where-Object { $_ -match 'TranscodeReasons' }) -join ' ')
+
+    '--- HDR off, chunked request'
+    $chunked = Invoke-RestMethod -Method POST -Uri "$base/Items/$hdr10/PlaybackInfo" -Headers (Auth 'off' (Login 'off')) -ContentType 'application/json' -TransferEncoding chunked -Body (@{ UserId = $script:userId; IsPlayback = $true; MaxStreamingBitrate = 120000000; DeviceProfile = (Web-Profile) } | ConvertTo-Json -Depth 12)
+    Pass-Fail 'A request with no length still transcodes' (Is-Transcoded $chunked.MediaSources[0]) "directPlay=$($chunked.MediaSources[0].SupportsDirectPlay)"
+
+    '--- HDR off, real transcode'
+    $encoding = Call GET '/System/Configuration/encoding' $admin $null
+    $encoding.EnableTonemapping = $true
+    Call POST '/System/Configuration/encoding' $admin $encoding | Out-Null
+    foreach ($target in @(@{ Name = 'H.264'; Profile = (Web-Profile) }, @{ Name = 'HEVC'; Profile = (Hevc-Profile) })) {
+        $logsBefore = @(Get-ChildItem (Join-Path $work 'config/log') -Filter 'FFmpeg.Transcode*').Name
+        $source = Playback 'off' $hdr10 $target.Profile
+        $master = [Uri]::new([Uri]$base, $source.TranscodingUrl)
+        $variant = [Uri]::new($master, ((Invoke-RestMethod $master) -split "`n" | Where-Object { $_.Trim() -and $_ -notmatch '^#' } | Select-Object -First 1).Trim())
+        $segment = [Uri]::new($variant, ((Invoke-RestMethod $variant -TimeoutSec 120) -split "`n" | Where-Object { $_.Trim() -and $_ -notmatch '^#' } | Select-Object -First 1).Trim())
+        $segmentStatus = [int](Invoke-WebRequest $segment -TimeoutSec 120 -SkipHttpErrorCheck).StatusCode
+        Pass-Fail "$($target.Name): a transcoded segment is served" ($segmentStatus -eq 200) "status=$segmentStatus"
+        $transcodeLog = Get-ChildItem (Join-Path $work 'config/log') -Filter 'FFmpeg.Transcode*' | Where-Object Name -notin $logsBefore | Get-Content -Raw
+        Pass-Fail "$($target.Name): the transcode tone maps" ($transcodeLog -match 'tonemap') ([regex]::Match($transcodeLog, 'tonemap\w*=tonemap=\w+').Value)
+        Pass-Fail "$($target.Name): the video is not copied" ($transcodeLog -notmatch '-codec:v:0 copy') ([regex]::Match($transcodeLog, '-codec:v:0 \S+').Value)
+    }
 
     '--- No device profile'
     $withSetting = Playback 'off' $hdr10 $null
@@ -214,6 +248,17 @@ try {
     '--- Sign-in'
     Pass-Fail 'Reading a setting signed out is refused' ((Get-StatusCode GET '/Extended/Hdr/Device') -eq 401) (Get-StatusCode GET '/Extended/Hdr/Device')
     Pass-Fail 'Changing a setting signed out is refused' ((Get-StatusCode POST '/Extended/Hdr/Device?mode=Off') -eq 401) (Get-StatusCode POST '/Extended/Hdr/Device?mode=Off')
+    Set-Mode 'victim' 'Off'
+    $intruderToken = Login 'intruder'
+    Get-StatusCode POST '/Extended/Hdr/Device?mode=On' (Auth 'victim' $intruderToken) | Out-Null
+    Pass-Fail "Claiming another device's ID doesn't change it" ((Get-Mode 'victim') -eq 'Off') (Get-Mode 'victim')
+
+    '--- Bad setting requests'
+    $missing = Get-StatusCode POST '/Extended/Hdr/Device' (Auth 'off' (Login 'off'))
+    Pass-Fail 'No mode is refused' ($missing -eq 400) "status=$missing"
+    Pass-Fail 'No mode keeps the setting' ((Get-Mode 'off') -eq 'Off') (Get-Mode 'off')
+    $invalid = Get-StatusCode POST '/Extended/Hdr/Device?mode=Sometimes' (Auth 'off' (Login 'off'))
+    Pass-Fail 'An unknown mode is refused' ($invalid -eq 400) "status=$invalid"
 
     '--- HDR on'
     Set-Mode 'on' 'On'

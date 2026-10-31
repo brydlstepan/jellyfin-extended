@@ -48,7 +48,5 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets the devices that don't use Auto.
     /// </summary>
-#pragma warning disable CA2227 // The XML serializer needs a setter.
     public List<DeviceOverride> Devices { get; set; } = [];
-#pragma warning restore CA2227
 }

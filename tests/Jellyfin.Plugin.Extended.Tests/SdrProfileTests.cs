@@ -38,29 +38,66 @@ public class SdrProfileTests
     public void Rewrite_HandlesCamelCaseClients()
     {
         var result = Rewrite("""
-            {"deviceProfile":{"codecProfiles":[{"type":"Video","applyConditions":[
+            {"deviceProfile":{"codecProfiles":[{"type":"Video","conditions":[
               {"condition":"EqualsAny","property":"videoRangeType","value":"HDR10"}]}]}}
             """);
 
         var profile = result["deviceProfile"]!;
-        Assert.Equal("SDR", (string?)profile["codecProfiles"]![0]!["applyConditions"]![0]!["value"]);
+        Assert.Equal("SDR", (string?)profile["codecProfiles"]![0]!["conditions"]![0]!["value"]);
         Assert.Equal(2, profile["codecProfiles"]!.AsArray().Count);
+    }
+
+    [Fact]
+    public void Rewrite_ReusesAnEmptyCodecProfilesKey()
+    {
+        var result = Rewrite("""{"deviceProfile":{"codecProfiles":null}}""");
+
+        var profile = result["deviceProfile"]!.AsObject();
+        Assert.Single(profile);
+        Assert.Single(profile["codecProfiles"]!.AsArray());
+    }
+
+    [Fact]
+    public void Rewrite_LeavesApplyConditionsAlone()
+    {
+        // These say when a rule applies. Rewriting them would apply HDR-only rules to SDR films.
+        var result = Rewrite("""
+            {"DeviceProfile":{"CodecProfiles":[{"Type":"Video","ApplyConditions":[
+              {"Condition":"EqualsAny","Property":"VideoRangeType","Value":"HDR10"}]}]}}
+            """);
+
+        Assert.Equal("HDR10", (string?)result["DeviceProfile"]!["CodecProfiles"]![0]!["ApplyConditions"]![0]!["Value"]);
+    }
+
+    [Fact]
+    public void Rewrite_LeavesOtherOperatorsAlone()
+    {
+        // "NotEquals SDR" would reject SDR films outright.
+        var result = Rewrite("""
+            {"DeviceProfile":{"CodecProfiles":[{"Type":"Video","Conditions":[
+              {"Condition":"NotEquals","Property":"VideoRangeType","Value":"DOVI"}]}]}}
+            """);
+
+        Assert.Equal("DOVI", (string?)result["DeviceProfile"]!["CodecProfiles"]![0]!["Conditions"]![0]!["Value"]);
     }
 
     [Theory]
     [InlineData("{}")]
     [InlineData("""{"UserId":"u"}""")]
     [InlineData("""{"DeviceProfile":null}""")]
-    [InlineData("[]")]
     public void Rewrite_LeavesBodiesWithoutAProfileAlone(string json)
     {
         Assert.Null(SdrProfile.Rewrite(json));
     }
 
-    [Fact]
-    public void Rewrite_RejectsMalformedBodies()
+    [Theory]
+    [InlineData("{not json")]
+    [InlineData("[]")]
+    [InlineData("""{"DeviceProfile":"x"}""")]
+    [InlineData("""{"DeviceProfile":{"CodecProfiles":"bad"}}""")]
+    public void Rewrite_RejectsMalformedBodies(string json)
     {
-        Assert.ThrowsAny<JsonException>(() => SdrProfile.Rewrite("{not json"));
+        Assert.ThrowsAny<JsonException>(() => SdrProfile.Rewrite(json));
     }
 
     private static JsonNode Rewrite(string json) => JsonNode.Parse(SdrProfile.Rewrite(json)!)!;

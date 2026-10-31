@@ -17,27 +17,40 @@ public static class SdrProfile
     /// </summary>
     /// <param name="json">The request body.</param>
     /// <returns>The new body, or null when it has no device profile to change.</returns>
+    /// <exception cref="JsonException">The body is malformed.</exception>
     public static string? Rewrite(string json)
     {
-        if (JsonNode.Parse(json) is not JsonObject body
-            || Get(body, "DeviceProfile") is not JsonObject profile)
+        if (JsonNode.Parse(json) is not JsonObject body)
+        {
+            throw new JsonException("The body is not an object.");
+        }
+
+        var profile = Get(body, "DeviceProfile");
+        if (profile is null)
         {
             return null;
         }
 
-        if (Get(profile, "CodecProfiles") is not JsonArray codecProfiles)
+        if (profile is not JsonObject profileObject)
         {
-            codecProfiles = [];
-            profile["CodecProfiles"] = codecProfiles;
+            throw new JsonException("The device profile is not an object.");
         }
+
+        var key = KeyOf(profileObject, "CodecProfiles") ?? "CodecProfiles";
+        var codecProfiles = profileObject[key] switch
+        {
+            null => [],
+            JsonArray array => array,
+            _ => throw new JsonException("The codec profiles are not a list.")
+        };
+        profileObject[key] ??= codecProfiles;
 
         foreach (var codecProfile in codecProfiles.OfType<JsonObject>())
         {
             SetRangeConditions(Get(codecProfile, "Conditions"));
-            SetRangeConditions(Get(codecProfile, "ApplyConditions"));
         }
 
-        // Apps like ExoPlayer send no range conditions at all, so add one that covers every codec.
+        // This covers every codec, including apps like ExoPlayer that send no range conditions at all.
         codecProfiles.Add(new JsonObject
         {
             ["Type"] = "Video",
@@ -53,6 +66,7 @@ public static class SdrProfile
         return body.ToJsonString();
     }
 
+    // These also decide what a transcode outputs, so an allowed list that includes HDR has to go.
     private static void SetRangeConditions(JsonNode? conditions)
     {
         if (conditions is not JsonArray array)
@@ -62,17 +76,23 @@ public static class SdrProfile
 
         foreach (var condition in array.OfType<JsonObject>())
         {
-            if (Get(condition, "Property") is JsonValue property
-                && property.GetValueKind() == JsonValueKind.String
-                && string.Equals(property.GetValue<string>(), RangeType, StringComparison.OrdinalIgnoreCase))
+            if (IsString(Get(condition, "Property"), RangeType)
+                && (IsString(Get(condition, "Condition"), "EqualsAny") || IsString(Get(condition, "Condition"), "Equals")))
             {
-                var key = condition.FirstOrDefault(p => string.Equals(p.Key, "Value", StringComparison.OrdinalIgnoreCase)).Key ?? "Value";
-                condition[key] = "SDR";
+                condition[KeyOf(condition, "Value") ?? "Value"] = "SDR";
             }
         }
     }
 
+    private static bool IsString(JsonNode? node, string expected)
+        => node is JsonValue value
+            && value.GetValueKind() == JsonValueKind.String
+            && string.Equals(value.GetValue<string>(), expected, StringComparison.OrdinalIgnoreCase);
+
     // ASP.NET binds these names case-insensitively, so clients may send any casing.
+    private static string? KeyOf(JsonObject parent, string name)
+        => parent.Select(p => p.Key).FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
+
     private static JsonNode? Get(JsonObject parent, string name)
-        => parent.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
+        => KeyOf(parent, name) is { } key ? parent[key] : null;
 }

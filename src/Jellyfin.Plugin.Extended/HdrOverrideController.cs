@@ -1,8 +1,12 @@
+using System.Linq;
 using System.Threading.Tasks;
+using Jellyfin.Data.Queries;
+using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Jellyfin.Plugin.Extended;
 
@@ -14,14 +18,17 @@ namespace Jellyfin.Plugin.Extended;
 public class HdrOverrideController : ControllerBase
 {
     private readonly IAuthorizationContext _authorizationContext;
+    private readonly IDeviceManager _deviceManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HdrOverrideController"/> class.
     /// </summary>
     /// <param name="authorizationContext">The authorization context.</param>
-    public HdrOverrideController(IAuthorizationContext authorizationContext)
+    /// <param name="deviceManager">The device manager.</param>
+    public HdrOverrideController(IAuthorizationContext authorizationContext, IDeviceManager deviceManager)
     {
         _authorizationContext = authorizationContext;
+        _deviceManager = deviceManager;
     }
 
     /// <summary>
@@ -31,17 +38,17 @@ public class HdrOverrideController : ControllerBase
     [HttpGet("Device")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<DeviceOverride>> GetDevice()
     {
         var plugin = Plugin.Instance;
-        if (plugin is null)
+        var deviceId = await GetCallingDeviceId().ConfigureAwait(false);
+        if (plugin is null || string.IsNullOrEmpty(deviceId))
         {
-            return NotFound();
+            return BadRequest();
         }
 
-        var deviceId = (await _authorizationContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).DeviceId;
-        return new DeviceOverride { DeviceId = deviceId ?? string.Empty, Mode = plugin.GetMode(deviceId) };
+        return new DeviceOverride { DeviceId = deviceId, Mode = plugin.GetMode(deviceId) };
     }
 
     /// <summary>
@@ -53,10 +60,10 @@ public class HdrOverrideController : ControllerBase
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult> SetDevice([FromQuery] HdrMode mode)
+    public async Task<ActionResult> SetDevice([FromQuery, BindRequired] HdrMode mode)
     {
         var plugin = Plugin.Instance;
-        var deviceId = (await _authorizationContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).DeviceId;
+        var deviceId = await GetCallingDeviceId().ConfigureAwait(false);
         if (plugin is null || string.IsNullOrEmpty(deviceId))
         {
             return BadRequest();
@@ -64,5 +71,12 @@ public class HdrOverrideController : ControllerBase
 
         plugin.SetMode(deviceId, mode);
         return NoContent();
+    }
+
+    // The request's own DeviceId can claim any device, so use the one its token was issued to.
+    private async Task<string?> GetCallingDeviceId()
+    {
+        var token = (await _authorizationContext.GetAuthorizationInfo(Request).ConfigureAwait(false)).Token;
+        return _deviceManager.GetDevices(new DeviceQuery { AccessToken = token }).Items.FirstOrDefault()?.DeviceId;
     }
 }
