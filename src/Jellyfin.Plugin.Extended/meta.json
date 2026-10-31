@@ -1,0 +1,13 @@
+{
+  "category": "General",
+  "description": "Adds features Jellyfin doesn't have. Its first feature lets each device choose Auto, HDR on or HDR off, so devices with wrong HDR contrast can use Jellyfin's transcoding instead.",
+  "guid": "6f0c2b7e-4d1a-4c86-9a53-2e7b8d1f3c40",
+  "name": "Jellyfin Extended",
+  "overview": "Extra Jellyfin features, starting with per-device HDR control.",
+  "owner": "brydlstepan",
+  "targetAbi": "12.0.0.0",
+  "version": "1.1.0.0",
+  "status": "Active",
+  "autoUpdate": false,
+  "assemblies": [ "Jellyfin.Plugin.Extended.dll" ]
+}

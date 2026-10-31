@@ -7,7 +7,8 @@ A Jellyfin 12 plugin that adds features Jellyfin doesn't have. Its first feature
 
 - profiles: software-dev
 - tracker: github
-- build/test commands: not decided yet
+- test: `dotnet test tests/Jellyfin.Plugin.Extended.Tests`
+- build: `dotnet build src/Jellyfin.Plugin.Extended -c Release -o artifacts/plugin`
 - plan: PLAN.md (delete it when the first milestone ships, see docs-standard)
 
 <!-- agent-kit:begin -->
