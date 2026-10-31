@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.Extended;
 public enum HdrMode
 {
     /// <summary>
-    /// Leave the device's request unchanged.
+    /// Ask for SDR when a browser reports an SDR screen. Otherwise leave the device's request unchanged.
     /// </summary>
     Auto = 0,
 

@@ -2,7 +2,7 @@
 
 A Jellyfin 12 plugin that adds features Jellyfin doesn't have. Its first feature lets each device choose how it handles HDR films, so devices with wrong HDR contrast can use Jellyfin's transcoding instead. It's built for the owner's server and shared as-is, with best-effort support.
 
-It is in early development. A device set to HDR off through the API gets HDR films transcoded. Auto and HDR on leave its requests unchanged, and there's no settings page yet. See [PLAN.md](PLAN.md) for what's coming.
+It is in early development. A device set to HDR off through the API gets HDR films transcoded. On Auto, the default, a browser on an SDR screen gets the same, and other clients stay unchanged. HDR on leaves requests unchanged, and there's no settings page yet. See [PLAN.md](PLAN.md) for what's coming.
 
 ## Quick start
 
