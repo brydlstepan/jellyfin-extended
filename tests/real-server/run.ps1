@@ -129,6 +129,30 @@ function Expect-Playback($name, $device, $item, $deviceProfile, $transcoded) {
     Pass-Fail $name ((Is-Transcoded $source) -eq $transcoded) "directPlay=$($source.SupportsDirectPlay) transcode=$([bool]$source.TranscodingUrl)"
 }
 
+function Expect-ScreenPlayback($name, $device, $item, $screen, $transcoded) {
+    $headers = (Auth $device (Login $device)) + @{ 'X-Extended-Screen' = $screen }
+    $source = (Call POST "/Items/$item/PlaybackInfo" $headers @{ UserId = $script:userId; IsPlayback = $true; MaxStreamingBitrate = 120000000; DeviceProfile = (Web-Profile) }).MediaSources[0]
+    Pass-Fail $name ((Is-Transcoded $source) -eq $transcoded) "directPlay=$($source.SupportsDirectPlay) transcode=$([bool]$source.TranscodingUrl)"
+}
+
+# Reads the raw response, as Invoke-WebRequest would hide any compression.
+function Get-Raw($path, $headers) {
+    $handler = [Net.Http.HttpClientHandler]::new()
+    $handler.AutomaticDecompression = [Net.DecompressionMethods]::None
+    $client = [Net.Http.HttpClient]::new($handler)
+    try {
+        $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get, "$base$path")
+        foreach ($name in $headers.Keys) { $request.Headers.TryAddWithoutValidation($name, $headers[$name]) | Out-Null }
+        $response = $client.Send($request)
+        [pscustomobject]@{
+            Status = [int]$response.StatusCode
+            Encoding = $response.Content.Headers.ContentEncoding -join ','
+            Text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        }
+    }
+    finally { $client.Dispose() }
+}
+
 function Set-Mode($device, $mode) { Call POST "/Extended/Hdr/Device?mode=$mode" (Auth $device (Login $device)) $null | Out-Null }
 function Get-Mode($device) { (Call GET '/Extended/Hdr/Device' (Auth $device (Login $device)) $null).Mode }
 
@@ -264,6 +288,32 @@ try {
     Set-Mode 'on' 'On'
     Pass-Fail 'The setting is saved' ((Get-Mode 'on') -eq 'On') (Get-Mode 'on')
     Expect-Playback 'HDR on, web profile, HDR10' 'on' $hdr10 (Web-Profile) $false
+
+    '--- Auto, reported screen'
+    Expect-ScreenPlayback 'Auto, SDR screen, HDR10' 'screen' $hdr10 'sdr' $true
+    Expect-ScreenPlayback 'Auto, SDR screen, Dolby Vision' 'screen' $dovi 'sdr' $true
+    Expect-ScreenPlayback 'Auto, SDR screen, SDR film not affected' 'screen' $sdr 'sdr' $false
+    Expect-ScreenPlayback 'Auto, the same device on an HDR screen, HDR10' 'screen' $hdr10 'hdr' $false
+    Expect-ScreenPlayback 'Auto, HDR screen, Dolby Vision' 'screen' $dovi 'hdr' $false
+    Expect-ScreenPlayback 'Auto, an unexpected report, HDR10' 'screen' $hdr10 'unexpected' $false
+    Expect-Playback 'Auto, no report, HDR10' 'screen' $hdr10 (Web-Profile) $false
+    Expect-ScreenPlayback 'HDR on, SDR screen, HDR10' 'on' $hdr10 'sdr' $false
+    Expect-ScreenPlayback 'HDR off, HDR screen, HDR10' 'off' $hdr10 'hdr' $true
+
+    '--- Web client page'
+    $marker = 'window.JellyfinExtended'
+    $control = Get-Raw '/web/main.jellyfin.bundle.js' @{ 'Accept-Encoding' = 'gzip' }
+    Pass-Fail 'The server does compress when asked' ($control.Encoding -eq 'gzip') "encoding=$($control.Encoding)"
+    foreach ($path in '/web/', '/web/index.html') {
+        foreach ($encoding in $null, 'gzip', 'br', 'gzip, deflate, br') {
+            $page = Get-Raw $path $(if ($encoding) { @{ 'Accept-Encoding' = $encoding } } else { @{} })
+            Pass-Fail "$path with encoding '$encoding' has the script" (($page.Status -eq 200) -and $page.Text.Contains($marker)) "status=$($page.Status) encoding=$($page.Encoding)"
+        }
+    }
+
+    $page = Get-Raw '/web/' @{ 'If-Modified-Since' = [DateTime]::UtcNow.AddYears(1).ToString('R') }
+    Pass-Fail 'A cached copy is replaced, not reused' (($page.Status -eq 200) -and $page.Text.Contains($marker)) "status=$($page.Status)"
+    Pass-Fail 'The page is otherwise intact' ($page.Text -match '(?s)main\.jellyfin\.bundle\.js.*</script></head><body.*</html>') ''
 
     '--- Admin page'
     $pageInfo = Call GET '/web/ConfigurationPages' $admin $null | ForEach-Object { $_ } | Where-Object Name -eq 'Jellyfin Extended'
