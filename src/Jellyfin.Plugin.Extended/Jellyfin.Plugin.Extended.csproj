@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <None Include="meta.json" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Web\devices.html" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jellyfin Extended</title>
+</head>
+<body>
+    <div id="extendedDevicesPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <h2 class="sectionTitle">HDR by device</h2>
+                <p>HDR off asks Jellyfin to transcode HDR films to SDR on that device, starting with its next playback. Auto and HDR on leave its requests unchanged.</p>
+                <p class="extendedDevicesStatus" role="status"></p>
+                <div style="overflow-x: auto;">
+                    <table class="detailTable" style="width: 100%; text-align: left;">
+                        <thead>
+                            <tr>
+                                <th scope="col">Device</th>
+                                <th scope="col">App</th>
+                                <th scope="col">Last user</th>
+                                <th scope="col">Last active</th>
+                                <th scope="col">HDR</th>
+                            </tr>
+                        </thead>
+                        <tbody class="extendedDevicesRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            (function () {
+                var modes = [
+                    { value: 'Auto', label: 'Auto' },
+                    { value: 'On', label: 'HDR on' },
+                    { value: 'Off', label: 'HDR off' }
+                ];
+                var page = document.querySelector('#extendedDevicesPage');
+                var rows = page.querySelector('.extendedDevicesRows');
+                var status = page.querySelector('.extendedDevicesStatus');
+
+                // Device, app and user names come from clients, so they only ever go in as text.
+                function cell(row, text) {
+                    row.insertCell().textContent = text || '';
+                }
+
+                function setMode(device, select) {
+                    var previous = device.Mode;
+                    select.disabled = true;
+                    status.textContent = '';
+                    ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('Extended/Hdr/Devices', { deviceId: device.Id, mode: select.value })
+                    }).then(function () {
+                        device.Mode = select.value;
+                        status.textContent = 'Saved ' + (device.Name || device.Id) + '.';
+                    }).catch(function () {
+                        select.value = previous;
+                        status.textContent = 'Could not save ' + (device.Name || device.Id) + '.';
+                    }).then(function () {
+                        select.disabled = false;
+                    });
+                }
+
+                function addRow(device) {
+                    var row = rows.insertRow();
+                    cell(row, device.Name || device.Id);
+                    cell(row, device.AppName);
+                    cell(row, device.LastUserName);
+                    cell(row, device.DateLastActivity ? new Date(device.DateLastActivity).toLocaleString() : '');
+
+                    var select = document.createElement('select');
+                    select.setAttribute('aria-label', 'HDR for ' + (device.Name || device.Id));
+                    modes.forEach(function (mode) {
+                        select.add(new Option(mode.label, mode.value));
+                    });
+                    select.value = device.Mode;
+                    select.addEventListener('change', function () {
+                        setMode(device, select);
+                    });
+                    row.insertCell().appendChild(select);
+                }
+
+                page.addEventListener('pageshow', function () {
+                    rows.textContent = '';
+                    status.textContent = '';
+                    ApiClient.getJSON(ApiClient.getUrl('Extended/Hdr/Devices')).then(function (devices) {
+                        devices.forEach(addRow);
+                        if (!devices.length) {
+                            status.textContent = 'The server knows no devices yet.';
+                        }
+                    }).catch(function () {
+                        status.textContent = 'Could not load the devices.';
+                    });
+                });
+            })();
+        </script>
+    </div>
+</body>
+</html>

@@ -265,9 +265,85 @@ try {
     Pass-Fail 'The setting is saved' ((Get-Mode 'on') -eq 'On') (Get-Mode 'on')
     Expect-Playback 'HDR on, web profile, HDR10' 'on' $hdr10 (Web-Profile) $false
 
+    '--- Admin page'
+    $pageInfo = Call GET '/web/ConfigurationPages' $admin $null | ForEach-Object { $_ } | Where-Object Name -eq 'Jellyfin Extended'
+    Pass-Fail 'The page is listed for the plugin' (($pageInfo.PluginId -replace '-') -eq '6f0c2b7e4d1a4c869a532e7b8d1f3c40') $pageInfo.PluginId
+    $pageHtml = (Invoke-WebRequest "$base/web/ConfigurationPage?name=Jellyfin%20Extended" -SkipHttpErrorCheck).Content
+    Pass-Fail 'The page is served' ($pageHtml -match 'extendedDevicesPage') ''
+
+    function Admin-Devices { Call GET '/Extended/Hdr/Devices' $admin $null | ForEach-Object { $_ } }
+    function Admin-Mode($device) { (Admin-Devices | Where-Object Id -ceq $device).Mode }
+    function Admin-Set($device, $mode) { Call POST "/Extended/Hdr/Devices?deviceId=$([Uri]::EscapeDataString($device))&mode=$mode" $admin $null | Out-Null }
+
+    Login 'phone' | Out-Null
+    $known = @((Call GET '/Devices' $admin $null).Items.Id | Sort-Object -Unique)
+    $listed = @(Admin-Devices).Id | Sort-Object
+    Pass-Fail 'Every device known to the server is listed' (($known -join ',') -ceq ($listed -join ',')) "server=$($known.Count) listed=$($listed.Count)"
+    Pass-Fail 'A device with no setting shows as Auto' ((Admin-Mode 'phone') -eq 'Auto') (Admin-Mode 'phone')
+    Pass-Fail "A device's own setting shows" ((Admin-Mode 'victim') -eq 'Off') (Admin-Mode 'victim')
+    $rawList = (Invoke-WebRequest "$base/Extended/Hdr/Devices" -Headers $admin).Content
+    Pass-Fail 'The list has no access tokens' ($rawList -notmatch 'Token') ''
+
+    Admin-Set 'phone' 'Off'
+    Pass-Fail 'HDR off from the admin page is saved' ((Admin-Mode 'phone') -eq 'Off') (Admin-Mode 'phone')
+    Pass-Fail 'The device sees the same setting' ((Get-Mode 'phone') -eq 'Off') (Get-Mode 'phone')
+    Expect-Playback 'Set by an admin, app profile: transcodes' 'phone' $hdr10 (App-Profile) $true
+    Expect-Playback 'Set by an admin, web profile: transcodes' 'phone' $hdr10 (Web-Profile) $true
+    Expect-Playback 'Set by an admin: other devices not affected' 'other' $hdr10 (App-Profile) $false
+    Admin-Set 'phone' 'On'
+    Pass-Fail 'HDR on from the admin page is saved' ((Admin-Mode 'phone') -eq 'On') (Admin-Mode 'phone')
+    Expect-Playback 'Set to HDR on by an admin: direct play' 'phone' $hdr10 (App-Profile) $false
+    Admin-Set 'phone' 'Auto'
+    Pass-Fail 'Auto from the admin page is saved' ((Admin-Mode 'phone') -eq 'Auto') (Admin-Mode 'phone')
+    Expect-Playback 'Set to Auto by an admin: direct play' 'phone' $hdr10 (App-Profile) $false
+    Pass-Fail 'Auto clears the saved entry' ((Get-Content (Join-Path $work 'config/plugins/configurations/Jellyfin.Plugin.Extended.xml') -Raw) -notmatch '<DeviceId>phone</DeviceId>') ''
+
+    Login 'odd & device' | Out-Null
+    Admin-Set 'odd & device' 'Off'
+    Pass-Fail 'A device ID with special characters works' ((Admin-Mode 'odd & device') -eq 'Off') (Admin-Mode 'odd & device')
+
+    '--- Admin page, bad requests'
+    $status = Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=made-up&mode=Off' $admin
+    Pass-Fail 'An unknown device is refused' ($status -eq 404) "status=$status"
+    Pass-Fail 'An unknown device is not stored' ((Get-Content (Join-Path $work 'config/plugins/configurations/Jellyfin.Plugin.Extended.xml') -Raw) -notmatch 'made-up') ''
+    $status = Get-StatusCode POST '/Extended/Hdr/Devices?mode=Off' $admin
+    Pass-Fail 'No device ID is refused' ($status -eq 400) "status=$status"
+    $status = Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=phone' $admin
+    Pass-Fail 'No mode is refused' ($status -eq 400) "status=$status"
+    foreach ($badMode in 'Sometimes', '7') {
+        $status = Get-StatusCode POST "/Extended/Hdr/Devices?deviceId=phone&mode=$badMode" $admin
+        Pass-Fail "The mode $badMode is refused" ($status -eq 400) "status=$status"
+    }
+
+    '--- Admin page, non-admin'
+    $limitedPassword = [guid]::NewGuid().ToString('N')
+    Call POST '/Users/New' $admin @{ Name = 'limited'; Password = $limitedPassword } | Out-Null
+    function Login-Limited($device) { (Call POST '/Users/AuthenticateByName' (Auth $device) @{ Username = 'limited'; Pw = $limitedPassword }).AccessToken }
+    $limited = Auth 'limited-device' (Login-Limited 'limited-device')
+    $status = Get-StatusCode GET '/Extended/Hdr/Devices' $limited
+    Pass-Fail 'A non-admin cannot list devices' ($status -eq 403) "status=$status"
+    $status = Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=phone&mode=Off' $limited
+    Pass-Fail 'A non-admin cannot change another device' ($status -eq 403) "status=$status"
+    Pass-Fail "The other device's setting is unchanged" ((Admin-Mode 'phone') -eq 'Auto') (Admin-Mode 'phone')
+    $status = Get-StatusCode POST '/Extended/Hdr/Device?mode=Off' $limited
+    Pass-Fail 'A non-admin can still change its own device' ($status -eq 204) "status=$status"
+    Pass-Fail 'Listing signed out is refused' ((Get-StatusCode GET '/Extended/Hdr/Devices') -eq 401) (Get-StatusCode GET '/Extended/Hdr/Devices')
+    Pass-Fail 'Changing signed out is refused' ((Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=phone&mode=Off') -eq 401) (Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=phone&mode=Off')
+
+    '--- Admin page, shared device'
+    Login 'shared' | Out-Null
+    Login-Limited 'shared' | Out-Null
+    $shared = @(Admin-Devices | Where-Object Id -ceq 'shared')
+    Pass-Fail 'A device with two users is listed once' ($shared.Count -eq 1) "rows=$($shared.Count)"
+    Pass-Fail 'It shows the latest user' ($shared[0].LastUserName -eq 'limited') $shared[0].LastUserName
+
+    Admin-Set 'phone' 'Off'
+
     '--- Restart'
     docker restart $container | Out-Null
     Wait-Server
+    Pass-Fail 'A setting from the admin page survives a restart' ((Admin-Mode 'phone') -eq 'Off') (Admin-Mode 'phone')
+    Expect-Playback 'Set by an admin: still transcodes after a restart' 'phone' $hdr10 (App-Profile) $true
     Pass-Fail 'HDR off survives a restart' ((Get-Mode 'off') -eq 'Off') (Get-Mode 'off')
     Expect-Playback 'HDR off still transcodes after a restart' 'off' $hdr10 (Web-Profile) $true
 
