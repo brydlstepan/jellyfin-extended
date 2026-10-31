@@ -2,7 +2,7 @@
 
 A Jellyfin 12 plugin that will let each device choose Auto, HDR on or HDR off, so devices with wrong HDR contrast can use Jellyfin's transcoding instead. It's built for the owner's server and shared as-is, with best-effort support.
 
-It is in early development and doesn't change playback yet. See [PLAN.md](PLAN.md) for what's coming.
+It is in early development. A device can be set to HDR off through the API, which makes Jellyfin transcode HDR films for it, but there's no settings page yet. See [PLAN.md](PLAN.md) for what's coming.
 
 ## Quick start
 
@@ -11,6 +11,12 @@ Run the tests, then build the plugin:
 ```bash
 dotnet test tests/Jellyfin.Plugin.Extended.Tests
 dotnet build src/Jellyfin.Plugin.Extended -c Release -o artifacts/plugin
+```
+
+After building, check it against a throwaway Jellyfin 12 server with generated clips. This needs Docker and PowerShell 7:
+
+```bash
+pwsh tests/real-server/run.ps1
 ```
 
 To install a build:
