@@ -49,6 +49,7 @@ Skills live in `.agents/skills/<name>/SKILL.md`. When a task matches a skill in 
 - Session long or drifting: write a `handoff` and continue in a fresh session.
 - Flow for new work: `grilling` → `to-spec` → `to-tickets` → `implement` (uses `tdd`, then `code-review`) → `commit` → `pr`. If the user wants to plan a new feature, suggest they run `feature`: it grills them, creates the issue, then starts or delegates it.
 - A new project with a `PLAN.md` skips `grilling` and `to-spec`: its first milestone goes straight to `to-tickets`.
+- A README gets a `## Development` section before Docs: how to run the tests and how to contribute.
 - For bugs: `diagnosing-bugs` first. Reproduce before you fix; add a test that fails before the fix.
 - Write the least code that solves the problem (`ponytail`). A known shortcut gets a comment: `shortcut: <limit>, <when to upgrade>`.
 - Run the type checker and the single relevant test file often; run the full suite before saying done.
@@ -64,8 +65,9 @@ Skills live in `.agents/skills/<name>/SKILL.md`. When a task matches a skill in 
 | [`commit`](.agents/skills/commit/SKILL.md) | Stage changes and write commit messages with a bracketed type prefix (`[feat]:`, `[fix]:`). Use when the user asks to commit, stage, prepare a commit, or draft a commit message. |
 | [`delegate`](.agents/skills/delegate/SKILL.md) | Hand a well-defined issue to a subagent working in its own git worktree and branch, then check its report. Use when the user picks an issue to delegate, or `list-issues` sends one here. |
 | [`diagnosing-bugs`](.agents/skills/diagnosing-bugs/SKILL.md) | Diagnosis loop for hard bugs and performance regressions. Use when the user says "diagnose"/"debug this", or reports something broken/throwing/failing/slow. |
-| [`docs-standard`](.agents/skills/docs-standard/SKILL.md) | The one documentation layout and format for every project. Use when creating, editing, or reorganising any project docs (README, architecture, ADR, runbook, glossary), or when the user asks to "document" something. |
+| [`docs-standard`](.agents/skills/docs-standard/SKILL.md) | The one documentation layout and format for every project. Use when creating, editing, or reorganising any project docs (README, architecture, configuration, ADR, runbook, glossary), or when the user asks to "document" something. |
 | [`domain-modeling`](.agents/skills/domain-modeling/SKILL.md) | Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR. |
+| [`git-identity`](.agents/skills/git-identity/SKILL.md) | Check and fix which email commits use, so the right GitHub account gets the credit. Use when a contributor or commit author is wrong, an unwanted email is in the history, or when setting up git identity on a new machine or clone. |
 | [`grilling`](.agents/skills/grilling/SKILL.md) | Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases. |
 | [`handoff`](.agents/skills/handoff/SKILL.md) | Compact the current conversation into a handoff document for another agent to pick up. Use when the session is long or drifting, or the user asks for a handoff. |
 | [`implement`](.agents/skills/implement/SKILL.md) | Implement a piece of work based on a spec or set of tickets. Use when the user asks to build a spec or ticket, or `delegate` hands one over. |
