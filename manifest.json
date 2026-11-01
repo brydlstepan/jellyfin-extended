@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "6f0c2b7e-4d1a-4c86-9a53-2e7b8d1f3c40",
+    "name": "Jellyfin Extended",
+    "description": "Adds features Jellyfin doesn't have. Its first feature lets each device choose Auto, HDR on or HDR off, so devices with wrong HDR contrast can use Jellyfin's transcoding instead.",
+    "overview": "Extra Jellyfin features, starting with per-device HDR control.",
+    "owner": "brydlstepan",
+    "category": "General",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "[feat]: release through a plugin repository",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/brydlstepan/jellyfin-extended/releases/download/v1.0/jellyfin-extended_1.0.0.0.zip",
+        "checksum": "9b7911315e665b1b8dbcb4322c77e0a4",
+        "timestamp": "2026-11-01T07:56:24Z"
+      }
+    ]
+  }
+]
