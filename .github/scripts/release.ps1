@@ -10,6 +10,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Tags are short, like 1.1, but Jellyfin and the assembly use four parts.
+$Version = (($Version.Split('.') + @('0', '0', '0'))[0..3]) -join '.'
+
 $metaPath = Join-Path $PluginDir 'meta.json'
 $meta = Get-Content $metaPath -Raw | ConvertFrom-Json
 if ($meta.version -ne $Version) { throw "The tag says $Version, but meta.json says $($meta.version)" }

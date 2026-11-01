@@ -70,7 +70,7 @@ Stop-All
 if (Test-Path $work) { Remove-Item $work -Recurse -Force }
 New-Item -ItemType Directory -Force $files, (Join-Path $work 'config'), (Join-Path $work 'cache') | Out-Null
 $version = (Get-Content (Join-Path $built 'meta.json') -Raw | ConvertFrom-Json).version
-$older = '1.0.0.0'
+$older = '0.9.0.0'
 
 '--- Manifest'
 $tagError = $null
@@ -89,7 +89,8 @@ Pass-Fail 'The first manifest is a list with a list of versions' ($single -match
 
 (Get-Content $manifest -Raw).Replace(((Get-Content $manifest -Raw | ConvertFrom-Json -NoEnumerate)[0].versions[0].checksum), '00000000000000000000000000000000') | Set-Content $manifest -Encoding utf8NoBOM
 Release $version $built
-Release $version $built
+# The workflow passes the tag's short form, such as 1.0.
+Release ($version -replace '(\.0){1,2}$') $built
 
 $plugin = (Get-Content $manifest -Raw | ConvertFrom-Json -NoEnumerate)[0]
 $listed = @($plugin.versions)
