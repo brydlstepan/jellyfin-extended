@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test tests/Jellyfin.Plugin.Extended.Tests
+      - run: dotnet build src/Jellyfin.Plugin.Extended -c Release -o artifacts/plugin
+      - name: Check out the manifest branch
+        run: |
+          if git fetch origin manifest:manifest; then
+            git worktree add manifest-branch manifest
+          else
+            git worktree add --orphan -b manifest manifest-branch
+          fi
+      - name: Package and add to the manifest
+        shell: pwsh
+        run: |
+          ./.github/scripts/release.ps1 `
+            -Version $env:TAG.TrimStart('v') `
+            -PluginDir artifacts/plugin `
+            -ManifestPath manifest-branch/manifest.json `
+            -BaseUrl "https://github.com/${{ github.repository }}/releases/download/$env:TAG" `
+            -OutDir artifacts/release `
+            -Changelog "$(git log -1 --format=%s)"
+      # A rerun replaces the zip, and the manifest below gets the new checksum.
+      - name: Create the release
+        run: |
+          gh release create "$TAG" artifacts/release/*.zip --generate-notes \
+            || gh release upload "$TAG" artifacts/release/*.zip --clobber
+      - name: Publish the manifest
+        working-directory: manifest-branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manifest.json
+          git commit -m "[chore]: add $TAG to the manifest"
+          git push origin manifest
