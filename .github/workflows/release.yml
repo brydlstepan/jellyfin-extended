@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 jobs:
   release:
@@ -51,3 +52,6 @@ jobs:
           git add manifest.json
           git commit -m "[chore]: add $TAG to the manifest"
           git push origin manifest
+      # A push with this workflow's token may not start a Pages build by itself.
+      - name: Rebuild the Pages site
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
