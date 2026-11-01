@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
 namespace Jellyfin.Plugin.Extended;
@@ -9,7 +11,7 @@ namespace Jellyfin.Plugin.Extended;
 /// <summary>
 /// The plugin's entry point, which also stores each device's HDR setting.
 /// </summary>
-public class Plugin : BasePlugin<PluginConfiguration>
+public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
     /// <summary>
     /// The plugin's ID, which must match the manifest.
@@ -39,6 +41,10 @@ public class Plugin : BasePlugin<PluginConfiguration>
 
     /// <inheritdoc />
     public override Guid Id => PluginId;
+
+    /// <inheritdoc />
+    public IEnumerable<PluginPageInfo> GetPages()
+        => [new PluginPageInfo { Name = Name, EmbeddedResourcePath = typeof(Plugin).Namespace + ".Web.devices.html" }];
 
     /// <summary>
     /// Gets a device's setting. Devices with no saved setting use Auto.

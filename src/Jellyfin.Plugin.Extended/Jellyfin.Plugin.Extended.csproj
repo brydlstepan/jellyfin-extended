@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <None Include="meta.json" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Web\devices.html" />
     <EmbeddedResource Include="screen-report.js" LogicalName="Jellyfin.Plugin.Extended.screen-report.js" />
   </ItemGroup>
 
