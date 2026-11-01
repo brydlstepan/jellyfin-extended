@@ -29,6 +29,16 @@ public class WebClientPageMiddlewareTests
     }
 
     [Fact]
+    public async Task ThePageCarriesThePlaybackSettingsToggle()
+    {
+        var body = Body(await Run("/web/", Respond(Page)));
+
+        Assert.Contains("mypreferencesplayback", body, StringComparison.Ordinal);
+        Assert.Contains("Extended/Hdr/Device'", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Extended/Hdr/Devices", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AsksTheServerForAPlainFullPage()
     {
         // Compressed bytes can't be edited, and a 304 or a partial response has no page to edit.

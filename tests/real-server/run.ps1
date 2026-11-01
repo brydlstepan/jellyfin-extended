@@ -315,6 +315,14 @@ try {
     Pass-Fail 'A cached copy is replaced, not reused' (($page.Status -eq 200) -and $page.Text.Contains($marker)) "status=$($page.Status)"
     Pass-Fail 'The page is otherwise intact' ($page.Text -match '(?s)main\.jellyfin\.bundle\.js.*</script></head><body.*</html>') ''
 
+    '--- Playback settings toggle'
+    # A browser isn't available here, so this checks what the toggle relies on: the rest needs a look in a browser.
+    Pass-Fail 'The page has the toggle' ($page.Text.Contains('extendedHdrSection')) ''
+    foreach ($needed in 'mypreferencesplayback', 'qualitySections') {
+        $files = docker exec $container sh -c "grep -l $needed /jellyfin/jellyfin-web/*.js"
+        Pass-Fail "The web client still has $needed" ([bool]$files) ''
+    }
+
     '--- Admin page'
     $pageInfo = Call GET '/web/ConfigurationPages' $admin $null | ForEach-Object { $_ } | Where-Object Name -eq 'Jellyfin Extended'
     Pass-Fail 'The page is listed for the plugin' (($pageInfo.PluginId -replace '-') -eq '6f0c2b7e4d1a4c869a532e7b8d1f3c40') $pageInfo.PluginId
@@ -377,6 +385,8 @@ try {
     Pass-Fail "The other device's setting is unchanged" ((Admin-Mode 'phone') -eq 'Auto') (Admin-Mode 'phone')
     $status = Get-StatusCode POST '/Extended/Hdr/Device?mode=Off' $limited
     Pass-Fail 'A non-admin can still change its own device' ($status -eq 204) "status=$status"
+    $limitedMode = (Call GET '/Extended/Hdr/Device' $limited $null).Mode
+    Pass-Fail 'A non-admin can read its own device' ($limitedMode -eq 'Off') $limitedMode
     Pass-Fail 'Listing signed out is refused' ((Get-StatusCode GET '/Extended/Hdr/Devices') -eq 401) (Get-StatusCode GET '/Extended/Hdr/Devices')
     Pass-Fail 'Changing signed out is refused' ((Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=phone&mode=Off') -eq 401) (Get-StatusCode POST '/Extended/Hdr/Devices?deviceId=phone&mode=Off')
 
