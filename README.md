@@ -1,19 +1,34 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" width="120" alt="Jellyfin Extended logo">
+</p>
+
 # Jellyfin Extended
 
-A Jellyfin 12 plugin that adds features Jellyfin doesn't have. Its first feature lets each device choose how it handles HDR films, so devices with wrong HDR contrast can use Jellyfin's transcoding instead. It's built for the owner's server and shared as-is, with best-effort support.
+A Jellyfin 12 plugin that adds features Jellyfin doesn't have, built for the owner's server and shared as-is with best-effort support.
 
-It is in early development. A device set to HDR off gets HDR films transcoded. On Auto, the default, a browser on an SDR screen gets the same, and other clients stay unchanged. HDR on leaves requests unchanged. A device on the web client sets itself on its playback settings page, which also says what Auto currently detects. An admin sets any device under Dashboard > Plugins > Jellyfin Extended, which is how apps with no toggle get set. See [PLAN.md](PLAN.md) for what's coming.
+![The Jellyfin Extended admin page, listing devices with an Auto, HDR on or HDR off setting for each](docs/assets/admin-page.jpg)
 
-## Install
+## Features
+
+- Choose Auto, HDR on or HDR off for each device, so a device with wrong HDR contrast can use Jellyfin's transcoding and tone mapping instead.
+- On Auto, the default, get HDR films transcoded in a browser on an SDR screen. Native apps stay unchanged on Auto, so set those by hand.
+- Set any device from the admin page, under Dashboard > Plugins > Jellyfin Extended.
+- Set your own browser from its playback settings page, which also says what Auto currently detects (v1.2 and later).
+
+## Usage
+
+Requires Jellyfin 12.x, with tone mapping turned on under Dashboard > Playback > Transcoding.
 
 1. Under Dashboard > Plugins > Repositories, add this repository URL:
    `https://brydlstepan.github.io/jellyfin-extended/manifest.json`
 2. Under Dashboard > Plugins > Catalog, install Jellyfin Extended.
 3. Restart Jellyfin. The plugin shows as Active under Dashboard > Plugins.
 
-## Quick start
+For example, if a phone shows HDR films with too much contrast, find it on the admin page and set it to HDR off. Its next playback of an HDR film is transcoded to SDR.
 
-Run the tests, then build the plugin:
+## Development
+
+This needs the .NET 10 SDK. Run the tests, then build the plugin:
 
 ```bash
 dotnet test tests/Jellyfin.Plugin.Extended.Tests
@@ -38,15 +53,10 @@ To install a local build by hand:
 2. Copy `Jellyfin.Plugin.Extended.dll` and `meta.json` from `artifacts/plugin` to `<config>/plugins/JellyfinExtended_<version>/`.
 3. Start Jellyfin. The plugin shows as Active under Dashboard > Plugins.
 
-## Release
+To release, set the new version in `meta.json` and the csproj, such as `1.2.0.0`, merge that to `main`, then push the matching short tag, such as `v1.2`. The Release workflow runs the tests, creates the GitHub release with the plugin zip, and adds the version to `manifest.json` on the `manifest` branch, which GitHub Pages serves.
 
-Set the new version in `meta.json` and the csproj, such as `1.2.0.0`, merge that to `main`, then push the matching short tag, such as `v1.2`. The Release workflow runs the tests, creates the GitHub release with the plugin zip, and adds the version to `manifest.json` on the `manifest` branch, which GitHub Pages serves.
+To contribute, open an issue first. Support is best-effort, so a reply may take a while.
 
-## Requirements
+## Docs
 
-- Jellyfin 12.x, with tone mapping turned on under Dashboard > Playback > Transcoding
-- .NET 10 SDK, to build
-
-## License
-
-[GPL-3.0](LICENSE)
+- [Architecture](docs/ARCHITECTURE.md)

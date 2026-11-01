@@ -10,7 +10,6 @@ A Jellyfin 12 plugin that adds features Jellyfin doesn't have. Its first feature
 - test: `dotnet test tests/Jellyfin.Plugin.Extended.Tests`
 - build: `dotnet build src/Jellyfin.Plugin.Extended -c Release -o artifacts/plugin`
 - real-server test, after building: `pwsh tests/real-server/run.ps1`
-- plan: PLAN.md (delete it when the first milestone ships, see docs-standard)
 
 <!-- agent-kit:begin -->
 <!-- Managed by agent-kit. Edits here are replaced on --update; put your own rules above. -->
