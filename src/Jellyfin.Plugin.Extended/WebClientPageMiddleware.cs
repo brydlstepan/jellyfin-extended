@@ -13,7 +13,7 @@ using Microsoft.Net.Http.Headers;
 namespace Jellyfin.Plugin.Extended;
 
 /// <summary>
-/// Adds the screen reporting script to the web client's page.
+/// Adds the screen reporting and toggle script to the web client's page.
 /// Anything unexpected passes through untouched: an unreported screen is better than a broken page.
 /// </summary>
 public sealed class WebClientPageMiddleware : IStartupFilter
