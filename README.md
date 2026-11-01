@@ -4,6 +4,13 @@ A Jellyfin 12 plugin that adds features Jellyfin doesn't have. Its first feature
 
 It is in early development. A device set to HDR off gets HDR films transcoded. On Auto, the default, a browser on an SDR screen gets the same, and other clients stay unchanged. HDR on leaves requests unchanged. An admin sets any device under Dashboard > Plugins > Jellyfin Extended, which is how apps with no toggle get set. The playback settings page has no toggle yet. See [PLAN.md](PLAN.md) for what's coming.
 
+## Install
+
+1. Under Dashboard > Plugins > Repositories, add this repository URL:
+   `https://raw.githubusercontent.com/brydlstepan/jellyfin-extended/manifest/manifest.json`
+2. Under Dashboard > Plugins > Catalog, install Jellyfin Extended.
+3. Restart Jellyfin. The plugin shows as Active under Dashboard > Plugins.
+
 ## Quick start
 
 Run the tests, then build the plugin:
@@ -19,11 +26,21 @@ After building, check it against a throwaway Jellyfin 12 server with generated c
 pwsh tests/real-server/run.ps1
 ```
 
-To install a build:
+To check installing through a plugin repository, on another throwaway server:
+
+```bash
+pwsh tests/real-server/repository.ps1
+```
+
+To install a local build by hand:
 
 1. Stop Jellyfin.
 2. Copy `Jellyfin.Plugin.Extended.dll` and `meta.json` from `artifacts/plugin` to `<config>/plugins/JellyfinExtended_<version>/`.
 3. Start Jellyfin. The plugin shows as Active under Dashboard > Plugins.
+
+## Release
+
+Set the new version in `meta.json` and the csproj, merge that to `main`, then push a matching tag such as `v1.2.0.0`. The Release workflow runs the tests, creates the GitHub release with the plugin zip, and adds the version to `manifest.json` on the `manifest` branch.
 
 ## Requirements
 
