@@ -7,7 +7,7 @@ It is in early development. A device set to HDR off gets HDR films transcoded. O
 ## Install
 
 1. Under Dashboard > Plugins > Repositories, add this repository URL:
-   `https://raw.githubusercontent.com/brydlstepan/jellyfin-extended/manifest/manifest.json`
+   `https://brydlstepan.github.io/jellyfin-extended/manifest.json`
 2. Under Dashboard > Plugins > Catalog, install Jellyfin Extended.
 3. Restart Jellyfin. The plugin shows as Active under Dashboard > Plugins.
 
@@ -40,7 +40,7 @@ To install a local build by hand:
 
 ## Release
 
-Set the new version in `meta.json` and the csproj, such as `1.2.0.0`, merge that to `main`, then push the matching short tag, such as `v1.2`. The Release workflow runs the tests, creates the GitHub release with the plugin zip, and adds the version to `manifest.json` on the `manifest` branch.
+Set the new version in `meta.json` and the csproj, such as `1.2.0.0`, merge that to `main`, then push the matching short tag, such as `v1.2`. The Release workflow runs the tests, creates the GitHub release with the plugin zip, and adds the version to `manifest.json` on the `manifest` branch, which GitHub Pages serves.
 
 ## Requirements
 
