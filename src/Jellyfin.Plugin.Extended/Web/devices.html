@@ -4,25 +4,57 @@
     <title>Jellyfin Extended</title>
 </head>
 <body>
-    <div id="extendedDevicesPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-select">
+    <div id="extendedDevicesPage" data-role="page" class="page type-interior pluginConfigurationPage">
+        <style>
+            /* Neutral greys sit on top of whichever theme the server uses, light or dark. */
+            #extendedDevicesPage .extendedHeader { margin: 1em 0 1.5em; }
+            #extendedDevicesPage .extendedHeader h2 { margin: 0; font-size: 1.75em; font-weight: 500; }
+            #extendedDevicesPage .extendedHeader p { margin: .25em 0 0; opacity: .7; }
+            #extendedDevicesPage .extendedCards { display: grid; gap: 1.25em; padding-bottom: 2em; }
+            #extendedDevicesPage .extendedCard { padding: 1.5em; border: 1px solid rgba(127, 127, 127, .25); border-radius: 12px; }
+            #extendedDevicesPage .extendedCard h3 { margin: 0; font-size: 1.25em; font-weight: 500; }
+            #extendedDevicesPage .extendedModeHelp { display: grid; grid-template-columns: max-content 1fr; gap: .35em 1em; margin: 1em 0 0; }
+            #extendedDevicesPage .extendedModeHelp dt { font-weight: 500; }
+            #extendedDevicesPage .extendedModeHelp dd { margin: 0; opacity: .7; }
+            #extendedDevicesPage .extendedDevicesStatus { min-height: 1.5em; margin: 1em 0 .5em; font-size: .9em; }
+            #extendedDevicesPage .extendedDevicesStatus.isError { color: #e5534b; }
+            #extendedDevicesPage .extendedDevicesRows { margin: 0; padding: 0; list-style: none; }
+            #extendedDevicesPage .extendedDevice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75em 1.5em; padding: .9em 0; border-top: 1px solid rgba(127, 127, 127, .25); }
+            #extendedDevicesPage .extendedDeviceInfo { flex: 1 1 16em; min-width: 0; overflow-wrap: anywhere; }
+            #extendedDevicesPage .extendedDeviceName { font-weight: 500; }
+            #extendedDevicesPage .extendedDeviceMeta { margin-top: .15em; font-size: .85em; opacity: .7; }
+            #extendedDevicesPage .extendedModes { display: inline-flex; margin: 0; padding: 3px; border: 0; border-radius: 8px; background: rgba(127, 127, 127, .18); }
+            #extendedDevicesPage .extendedModes:disabled { opacity: .6; }
+            #extendedDevicesPage .extendedMode { position: relative; cursor: pointer; }
+            #extendedDevicesPage .extendedModes:disabled .extendedMode { cursor: default; }
+            #extendedDevicesPage .extendedMode input { position: absolute; margin: 0; opacity: 0; pointer-events: none; }
+            #extendedDevicesPage .extendedMode span { display: block; padding: .4em .9em; border-radius: 6px; font-size: .9em; white-space: nowrap; }
+            #extendedDevicesPage .extendedMode input:checked + span { background: #007ba3; color: #fff; }
+            #extendedDevicesPage .extendedMode input:focus-visible + span { outline: 2px solid currentColor; outline-offset: 1px; }
+        </style>
+
         <div data-role="content">
             <div class="content-primary">
-                <h2 class="sectionTitle">HDR by device</h2>
-                <p>HDR off asks Jellyfin to transcode HDR films to SDR on that device, starting with its next playback. On Auto, a browser on an SDR screen does the same, and other apps stay unchanged. HDR on leaves its requests unchanged.</p>
-                <p class="extendedDevicesStatus" role="status"></p>
-                <div style="overflow-x: auto;">
-                    <table class="detailTable" style="width: 100%; text-align: left;">
-                        <thead>
-                            <tr>
-                                <th scope="col">Device</th>
-                                <th scope="col">App</th>
-                                <th scope="col">Last user</th>
-                                <th scope="col">Last active</th>
-                                <th scope="col">HDR</th>
-                            </tr>
-                        </thead>
-                        <tbody class="extendedDevicesRows"></tbody>
-                    </table>
+                <header class="extendedHeader">
+                    <h2>Jellyfin Extended</h2>
+                    <p>Features Jellyfin doesn't have.</p>
+                </header>
+
+                <!-- Each feature is one section.extendedCard. -->
+                <div class="extendedCards">
+                    <section class="extendedCard" aria-labelledby="extendedHdrTitle">
+                        <h3 id="extendedHdrTitle">HDR by device</h3>
+                        <dl class="extendedModeHelp">
+                            <dt>Auto</dt>
+                            <dd>A browser on an SDR screen gets HDR films transcoded to SDR. Other apps stay unchanged.</dd>
+                            <dt>HDR on</dt>
+                            <dd>The device's requests stay unchanged.</dd>
+                            <dt>HDR off</dt>
+                            <dd>HDR films are transcoded to SDR, starting with the device's next playback.</dd>
+                        </dl>
+                        <p class="extendedDevicesStatus" role="status"></p>
+                        <ul class="extendedDevicesRows"></ul>
+                    </section>
                 </div>
             </div>
         </div>
@@ -38,58 +70,86 @@
                 var rows = page.querySelector('.extendedDevicesRows');
                 var status = page.querySelector('.extendedDevicesStatus');
 
-                // Device, app and user names come from clients, so they only ever go in as text.
-                function cell(row, text) {
-                    row.insertCell().textContent = text || '';
+                function setStatus(text, isError) {
+                    status.textContent = text;
+                    status.classList.toggle('isError', !!isError);
                 }
 
-                function setMode(device, select) {
+                // Device, app and user names come from clients, so they only ever go in as text.
+                function textDiv(className, text) {
+                    var div = document.createElement('div');
+                    div.className = className;
+                    div.textContent = text;
+                    return div;
+                }
+
+                function setMode(device, group, value) {
                     var previous = device.Mode;
-                    select.disabled = true;
-                    status.textContent = '';
+                    group.disabled = true;
+                    setStatus('');
                     ApiClient.ajax({
                         type: 'POST',
-                        url: ApiClient.getUrl('Extended/Hdr/Devices', { deviceId: device.Id, mode: select.value })
+                        url: ApiClient.getUrl('Extended/Hdr/Devices', { deviceId: device.Id, mode: value })
                     }).then(function () {
-                        device.Mode = select.value;
-                        status.textContent = 'Saved ' + (device.Name || device.Id) + '.';
+                        device.Mode = value;
+                        setStatus('Saved ' + (device.Name || device.Id) + '.');
                     }).catch(function () {
-                        select.value = previous;
-                        status.textContent = 'Could not save ' + (device.Name || device.Id) + '.';
+                        group.querySelector('input[value="' + previous + '"]').checked = true;
+                        setStatus('Could not save ' + (device.Name || device.Id) + '.', true);
                     }).then(function () {
-                        select.disabled = false;
+                        group.disabled = false;
                     });
                 }
 
-                function addRow(device) {
-                    var row = rows.insertRow();
-                    cell(row, device.Name || device.Id);
-                    cell(row, device.AppName);
-                    cell(row, device.LastUserName);
-                    cell(row, device.DateLastActivity ? new Date(device.DateLastActivity).toLocaleString() : '');
+                function addRow(device, index) {
+                    var row = document.createElement('li');
+                    row.className = 'extendedDevice';
 
-                    var select = document.createElement('select');
-                    select.setAttribute('aria-label', 'HDR for ' + (device.Name || device.Id));
+                    var info = document.createElement('div');
+                    info.className = 'extendedDeviceInfo';
+                    info.appendChild(textDiv('extendedDeviceName', device.Name || device.Id));
+                    info.appendChild(textDiv('extendedDeviceMeta', [
+                        device.AppName,
+                        device.LastUserName,
+                        device.DateLastActivity ? new Date(device.DateLastActivity).toLocaleString() : ''
+                    ].filter(Boolean).join(' · ')));
+                    row.appendChild(info);
+
+                    var group = document.createElement('fieldset');
+                    group.className = 'extendedModes';
+                    group.setAttribute('aria-label', 'HDR for ' + (device.Name || device.Id));
                     modes.forEach(function (mode) {
-                        select.add(new Option(mode.label, mode.value));
+                        var label = document.createElement('label');
+                        label.className = 'extendedMode';
+                        var input = document.createElement('input');
+                        input.type = 'radio';
+                        input.name = 'extendedMode' + index;
+                        input.value = mode.value;
+                        input.checked = device.Mode === mode.value;
+                        input.addEventListener('change', function () {
+                            setMode(device, group, mode.value);
+                        });
+                        var text = document.createElement('span');
+                        text.textContent = mode.label;
+                        label.appendChild(input);
+                        label.appendChild(text);
+                        group.appendChild(label);
                     });
-                    select.value = device.Mode;
-                    select.addEventListener('change', function () {
-                        setMode(device, select);
-                    });
-                    row.insertCell().appendChild(select);
+                    row.appendChild(group);
+
+                    rows.appendChild(row);
                 }
 
                 page.addEventListener('pageshow', function () {
                     rows.textContent = '';
-                    status.textContent = '';
+                    setStatus('');
                     ApiClient.getJSON(ApiClient.getUrl('Extended/Hdr/Devices')).then(function (devices) {
                         devices.forEach(addRow);
                         if (!devices.length) {
-                            status.textContent = 'The server knows no devices yet.';
+                            setStatus('The server knows no devices yet.');
                         }
                     }).catch(function () {
-                        status.textContent = 'Could not load the devices.';
+                        setStatus('Could not load the devices.', true);
                     });
                 });
             })();
