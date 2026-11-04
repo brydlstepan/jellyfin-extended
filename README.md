@@ -4,7 +4,7 @@
 
 # Jellyfin Extended
 
-A Jellyfin 12 plugin that adds features Jellyfin doesn't have, built for the owner's server and shared as-is with best-effort support.
+A Jellyfin 12 plugin that adds new features.
 
 ![The Jellyfin Extended admin page, listing devices with an Auto, HDR on or HDR off setting for each](docs/assets/admin-page.jpg)
 
